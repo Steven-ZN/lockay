@@ -35,34 +35,13 @@
 
 ### What it does
 
-```
-                    +--------------+
-                    |   LLM Agent   |
-                    +------+-------+
-                           |
-                           |  agent has NO direct write access
-                           |  agent has NO unrestricted shell
-                           v
-                    +--------------+
-                    |    lockay      |
-                    | capability sh  |
-                    +------+-------+
-                           |
-            +--------------+--------------+
-            |                             |
-            v                             v
-     +--------------+              +--------------+
-     |   linelock    |              |   cmdlock     |
-     | file mutation |              | command gate  |
-     +------+-------+              +------+-------+
-            |                             |
-            v                             v
-     protected files               privileged actions
+<p align="center">
+  <img src="info.png" alt="lockay architecture" width="600">
+</p>
 
 Agent can read files. Agent cannot write files directly.
 Agent can propose edits. lockay validates them.
 Agent can propose commands. cmdlock gates them.
-```
 
 Two enforcement layers, one binary:
 
@@ -269,30 +248,9 @@ lockay/
 
 lockay 是 agent 时代的权限层。它管控两个维度：
 
-```
-                    +--------------+
-                    |   LLM Agent   |
-                    +------+-------+
-                           |
-                           | agent  直接写权限
-                           | agent  自由 shell
-                           v
-                    +--------------+
-                    |    lockay      |
-                    |  能力受控 shell  |
-                    +------+-------+
-                           |
-            +--------------+--------------+
-            |                             |
-            v                             v
-     +--------------+              +--------------+
-     |   linelock    |              |   cmdlock     |
-     |  文件修改控制   |              |  命令执行门控   |
-     +------+-------+              +------+-------+
-            |                             |
-            v                             v
-      受保护的文件                     受控的操作权限
-```
+<p align="center">
+  <img src="info.png" alt="lockay architecture" width="600">
+</p>
 
 | 层级 | 解决的问题 | 方式 |
 |------|-----------|------|
