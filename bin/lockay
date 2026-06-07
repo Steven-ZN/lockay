@@ -1,0 +1,4 @@
+#!/bin/sh
+# lockay wrapper for npm global install
+DIR="$(cd "$(dirname "$0")" && pwd)"
+exec "$DIR/../build/lockay" "$@"
