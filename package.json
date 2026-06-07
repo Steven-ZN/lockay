@@ -1,6 +1,6 @@
 {
   "name": "lockayy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "chmod for lines of code. sudo for autonomous agents.",
   "homepage": "https://github.com/Steven-ZN/lockay",
   "repository": {
@@ -27,10 +27,19 @@
     "info.png"
   ],
   "keywords": [
-    "agent", "capability", "security", "lock",
-    "code-lock", "command-gate", "llm", "coding-agent"
+    "agent",
+    "capability",
+    "security",
+    "lock",
+    "code-lock",
+    "command-gate",
+    "llm",
+    "coding-agent"
   ],
-  "os": ["darwin", "linux"],
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "engines": {
     "node": ">=14"
   }
