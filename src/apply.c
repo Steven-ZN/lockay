@@ -66,6 +66,12 @@ int apply_show(const char *repo_root, const char *file,
 
     if (start < 1) start = 1;
     if (end < 0 || end > fb->count) end = fb->count;
+    if (start > end) {
+        fprintf(stderr, "ERROR: invalid range %d-%d (start > end)\n", start, end);
+        lockdb_free(db);
+        filebuf_free(fb);
+        return APPLY_ERROR;
+    }
 
     for (int i = start; i <= end; i++) {
         LockRecord *lr = lockdb_is_line_locked(db, file, i);
