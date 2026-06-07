@@ -3,6 +3,7 @@
 #include "lockdb.h"
 #include "validate.h"
 #include "sha256.h"
+#include "apply.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -667,6 +668,9 @@ int tui_edit(const char *repo_root, const char *file) {
     size_t plen = strlen(repo_root) + strlen(file) + 4;
     t.full_path = malloc(plen);
     snprintf(t.full_path, plen, "%s/%s", repo_root, file);
+
+    /* Auto-restore before loading */
+    apply_auto_restore(repo_root, file);
 
     /* Load file */
     t.fb = filebuf_load(t.full_path);

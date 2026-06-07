@@ -998,13 +998,9 @@ TEST(restore_tampered_content) {
     /* Tamper with locked content (simulate nano) */
     write_file(path, "def hacked():\n    return 999\n\n# editable\n");
 
-    /* Verify tampering detected */
+    /* Auto-restore fires on access — check detects and restores */
     rc = apply_check(dir, "api.py");
-    CHECK(rc == APPLY_DENIED, "tampering detected");
-
-    /* Restore from git */
-    rc = apply_restore(dir, "api.py");
-    CHECK(rc == APPLY_OK, "restore succeeds");
+    CHECK(rc == APPLY_OK, "auto-restore fires on check");
 
     /* Verify restored */
     FileBuf *fb = filebuf_load(path);
@@ -1013,9 +1009,6 @@ TEST(restore_tampered_content) {
     CHECK(strcmp(fb->lines[2].text, "") == 0, "blank line intact");
     CHECK(strcmp(fb->lines[3].text, "# editable") == 0, "editable line intact");
     filebuf_free(fb);
-
-    rc = apply_check(dir, "api.py");
-    CHECK(rc == APPLY_OK, "check passes after restore");
 
     rmrf(dir);
 }

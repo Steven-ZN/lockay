@@ -58,6 +58,8 @@ static char *full_path(const char *repo_root, const char *file) {
 
 int apply_show(const char *repo_root, const char *file,
                int start, int end) {
+    apply_auto_restore(repo_root, file);
+
     char *fpath = full_path(repo_root, file);
     FileBuf *fb = filebuf_load(fpath);
     free(fpath);
@@ -256,6 +258,8 @@ int apply_unlock(const char *repo_root, const char *id) {
 /* ---------- Check ---------- */
 
 int apply_check(const char *repo_root, const char *file) {
+    apply_auto_restore(repo_root, file);
+
     char *fpath = full_path(repo_root, file);
     FileBuf *fb = filebuf_load(fpath);
     free(fpath);
@@ -375,6 +379,8 @@ static int apply_diff(FileBuf *fb, const char *patch_text) {
 
 int apply_patch(const char *repo_root, const char *file,
                 const char *patch_path) {
+    apply_auto_restore(repo_root, file);
+
     /* Read patch file */
     FILE *pf = fopen(patch_path, "r");
     if (!pf) {
@@ -460,6 +466,8 @@ static int apply_line_op(const char *repo_root, const char *file,
                          int line, int end_line,
                          const char *text, int op) {
     /* op: 0=set, 1=insert, 2=delete */
+    apply_auto_restore(repo_root, file);
+
     char *fpath = full_path(repo_root, file);
     FileBuf *fb = filebuf_load(fpath);
     if (!fb) {
@@ -570,6 +578,70 @@ int apply_delete_lines(const char *repo_root, const char *file,
 }
 
 /* ---------- Restore ---------- */
+
+/* Silent auto-restore: called before every file operation.
+ * If locked content was externally tampered, restore from git. */
+void apply_auto_restore(const char *repo_root, const char *file) {
+    char *fpath = full_path(repo_root, file);
+    LockDB *db = lockdb_load(repo_root);
+    FileBuf *fb = filebuf_load(fpath);
+    if (!fb) { lockdb_free(db); free(fpath); return; }
+
+    LockRecord *fl[64];
+    int n = lockdb_get_file_locks(db, file, fl, 64);
+    if (n == 0) { lockdb_free(db); filebuf_free(fb); free(fpath); return; }
+
+    bool changed = false;
+    for (int i = 0; i < n; i++) {
+        LockRecord *lr = fl[i];
+        if (lr->commit[0] == '\0') continue;
+        if (lr->line_count <= 0) continue;
+        if (lr->start < 1 || lr->end > fb->count) continue;
+
+        /* Check if locked content was modified */
+        Sha256Digest cur_hash;
+        const char **ptrs = malloc((size_t)lr->line_count * sizeof(char *));
+        for (int j = 0; j < lr->line_count; j++)
+            ptrs[j] = fb->lines[lr->start - 1 + j].text;
+        sha256_hash_lines(ptrs, lr->line_count, &cur_hash);
+        free(ptrs);
+        if (sha256_eq(&cur_hash, &lr->content_hash)) continue;
+
+        /* Fetch original from git */
+        char gcmd[1024];
+        snprintf(gcmd, sizeof(gcmd), "git -C %s show %s:%s 2>/dev/null",
+                 repo_root, lr->commit, file);
+        FILE *gf = popen(gcmd, "r");
+        if (!gf) continue;
+
+        char **glines = malloc((size_t)lr->end * sizeof(char *));
+        int gcnt = 0;
+        char *line = NULL; size_t ls = 0;
+        while (getline(&line, &ls, gf) != -1 && gcnt < lr->end) {
+            size_t ll = strlen(line);
+            if (ll > 0 && line[ll-1] == '\n') line[--ll] = '\0';
+            glines[gcnt++] = strdup(line);
+        }
+        free(line); pclose(gf);
+
+        if (gcnt >= lr->end) {
+            for (int j = 0; j < lr->line_count; j++)
+                filebuf_set_line(fb, lr->start + j, glines[lr->start - 1 + j]);
+            changed = true;
+        }
+        for (int j = 0; j < gcnt; j++) free(glines[j]);
+        free(glines);
+    }
+
+    if (changed) {
+        filebuf_save_atomic(fb, fpath);
+        fprintf(stderr, "[lockay] auto-restored locked content in %s\n", file);
+    }
+
+    lockdb_free(db);
+    filebuf_free(fb);
+    free(fpath);
+}
 
 int apply_restore(const char *repo_root, const char *file) {
     char *fpath = full_path(repo_root, file);
