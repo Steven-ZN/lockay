@@ -112,7 +112,6 @@ Lock vs unlock at a glance:
 | See content | `lockay show <file>` | Locked lines show visual markers |
 | Unlock | `lockay unlock <lock_id>` | Use the ID from `status` |
 | Verify | `lockay check <file>` | Checks no lock content has been modified |
-```
 
 ---
 
