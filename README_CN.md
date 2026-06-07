@@ -21,9 +21,9 @@
 ---
 
 <p align="center">
-  <b>lockay</b> agent<br>
-  <b></b><b></b><br>
-  FUSE
+  <b>lockay</b> 是 agent 时代的权限层。<br>
+  精确控制 agent <b>可以修改哪些代码</b>和<b>可以执行哪些命令</b>。<br>
+  不依赖 FUSE。不依赖内核模块。只是一个可审计的小型 C 二进制文件。
 </p>
 
 <p align="center">
@@ -38,7 +38,7 @@
   <img src="info.png" alt="lockay architecture" width="600">
 </p>
 
-agent  agent  lockay  agent  cmdlock 
+agent 可以读文件, 不能直接写文件。agent 只能通过 lockay 提交修改，lockay 验证锁区后才写入。agent 只能通过 cmdlock 执行命令，cmdlock 检查策略后才放行。
 
 | 层级 | 解决的问题 | 方式 |
 |------|-----------|------|
@@ -81,7 +81,7 @@ lockay lock src/schema.sql 1 50 steven "schema v2"
 # 查看锁定状态
 lockay status
 
-# 用 TUI 编辑器编辑 (锁住的行有 visual marker)
+# 用 TUI 编辑器编辑 (锁住的行有视觉标记)
 lockay edit src/model.py
 
 # 通过策略门控执行命令
@@ -155,8 +155,8 @@ Command : rm -rf ./checkpoints
 Risk    : L3 (DESTRUCT)
 Policy  : ASK
 -----------------------------
-This command requires approval.
-Options: [A]llow once  [D]eny
+此命令需要审批。
+选项: [A] 允许一次  [D] 拒绝
 ```
 
 所有决策被记录到 `.lockay/audit.log`。
