@@ -53,11 +53,15 @@ Two enforcement layers, one binary:
 
 ### Install
 
-```bash
-# One command:
-curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
+**Use the install script (recommended):**
 
-# Or from source:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
+```
+
+**Or build from source:**
+
+```bash
 git clone https://github.com/Steven-ZN/lockay.git
 cd lockay && make
 sudo make install          # system-wide
