@@ -124,7 +124,7 @@ Lock vs unlock at a glance:
 | See content | `lockay show <file>` | Locked lines show visual markers |
 | Unlock | `lockay unlock <lock_id>` | Use the ID from `status` |
 | Verify | `lockay check <file>` | Checks no lock content has been modified |
-| Restore | `lockay restore <file>` | Auto-restore tampered locked lines from backup |
+| Restore | `lockay restore <file>` | Auto-restore tampered locked lines from the recorded git commit |
 | Watch | `lockay watch [interval]` | Daemon: monitor and auto-restore on changes |
 
 ---
@@ -249,8 +249,10 @@ lockay run    "pytest tests/"              # run through policy gate
   |   load file -> validate locks -> atomic   |
   |   write (temp + fsync + rename)           |
   |                                           |
-  |   Trusted core never calls:               |
+  |   Trusted mutation core never calls:       |
   |     system() popen() exec() shell()       |
+  |   Git-based restore is isolated in the    |
+  |   restore path.                           |
   '-------------------------------------------'
 ```
 
@@ -305,7 +307,7 @@ If you try to edit a locked line, it prints: `Line N is locked (lock-id)` and re
 ```
 lockay/
   src/
-    main.c          CLI dispatch (14 subcommands)
+    main.c          CLI dispatch (16 subcommands)
     tui.c           nano-style terminal editor
     filebuf.c       line buffer + char-level editing
     lockdb.c        lock metadata store
@@ -314,7 +316,7 @@ lockay/
     cmdlock.c       command gate (policy engine + audit)
     sha256.c        embedded SHA-256 (public domain)
   tests/
-    test_runner.c   51 test cases
+    test_runner.c   55 test cases
   install.sh        interactive installer (EN/ZH)
   Makefile
 ```

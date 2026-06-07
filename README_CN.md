@@ -120,7 +120,7 @@ lockay run "git push origin main"   # 默认拒绝
 | 看内容 | `lockay show <文件>` | 被锁行有视觉标记 |
 | 解锁 | `lockay unlock <锁ID>` | 用 `status` 输出的 ID 解锁 |
 | 校验 | `lockay check <文件>` | 检查锁区内容是否被篡改 |
-| 恢复 | `lockay restore <文件>` | 从备份恢复被篡改的锁区 |
+| 恢复 | `lockay restore <文件>` | 从记录的 git commit 自动恢复被篡改的锁区 |
 | 守护 | `lockay watch [间隔秒]` | 后台监控，检测到篡改自动恢复 |
 
 ---
@@ -245,8 +245,9 @@ lockay run    "pytest tests/"              # 通过策略门执行
   |   读文件 -> 验证锁区 -> 原子写入            |
   |   (临时文件 + fsync + rename)              |
   |                                           |
-  |   可信核心决不调用:                          |
-  |     system() popen() exec() shell()        |
+  |   可信突变核心在验证和原子写入时                |
+  |   不调用任何 shell 命令。                     |
+  |   Git 恢复路径隔离在 restore 路径中。          |
   '-------------------------------------------'
 ```
 
@@ -301,7 +302,7 @@ lockay edit <文件>
 ```
 lockay/
   src/
-    main.c          CLI 分发 (14 个子命令)
+    main.c          CLI 分发 (16 个子命令)
     tui.c           nano 风格终端编辑器
     filebuf.c       行缓冲区 + 字符级编辑
     lockdb.c        锁元数据存储
@@ -310,7 +311,7 @@ lockay/
     cmdlock.c       命令门控 (策略引擎 + 审计)
     sha256.c        内嵌 SHA-256 (公共领域)
   tests/
-    test_runner.c   51 个测试用例
+    test_runner.c   55 个测试用例
   install.sh        交互式安装脚本 (中/英)
   Makefile
 ```
