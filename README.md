@@ -148,6 +148,17 @@ Before edit:                    After edit:
 
 ### How cmdlock works
 
+Command lock does not use a CLI subcommand like file lock. Instead, you edit the policy file directly:
+
+| Step | What | Command |
+|------|------|---------|
+| Generate | Create default policy file | `lockay policy` |
+| Edit | Add your rules | Edit `.lockay/policy` |
+| Enforce | Run commands through the gate | `lockay run "..."` |
+| Monitor | Review all decisions | Check `.lockay/audit.log` |
+
+Policy format: `<command_pattern>    <allow|ask|deny>` — first match wins.
+
 Commands are classified into 5 risk levels:
 
 ```
