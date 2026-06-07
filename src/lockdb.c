@@ -5,6 +5,8 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -137,12 +139,29 @@ void lockdb_free(LockDB *db) {
 /* ---------- ID generation ---------- */
 
 void lockdb_gen_id(char out[8]) {
-    /* Generate short hex id from random bytes */
-    static int seeded = 0;
-    if (!seeded) { srand((unsigned)time(NULL)); seeded = 1; }
+    unsigned char rnd[3];
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd >= 0) {
+        if (read(fd, rnd, 3) != 3) {
+            /* Fallback on short read */
+            unsigned int mix = (unsigned)(time(NULL) ^ getpid());
+            for (int i = 0; i < 3; i++) rnd[i] = (unsigned char)(mix >> (i * 8));
+        }
+        close(fd);
+    } else {
+        unsigned int mix = (unsigned)(time(NULL) ^ getpid());
+        for (int i = 0; i < 3; i++) rnd[i] = (unsigned char)(mix >> (i * 8));
+    }
     for (int i = 0; i < 6; i++)
-        out[i] = "0123456789abcdef"[rand() % 16];
+        out[i] = "0123456789abcdef"[(rnd[i/2] >> ((i%2) ? 0 : 4)) & 0xf];
     out[6] = '\0';
+}
+
+static bool lockdb_id_exists(const LockDB *db, const char *id) {
+    for (int i = 0; i < db->count; i++)
+        if (strcmp(db->locks[i].id, id) == 0)
+            return true;
+    return false;
 }
 
 /* ---------- CRUD ---------- */
@@ -161,7 +180,12 @@ const char *lockdb_add(LockDB *db, const char *file,
     LockRecord *lr = &db->locks[db->count];
     memset(lr, 0, sizeof(*lr));
     lr->file       = strdup(file);
-    lockdb_gen_id(lr->id);
+
+    /* Generate unique ID with collision retry (max 10 attempts) */
+    for (int retry = 0; retry < 10; retry++) {
+        lockdb_gen_id(lr->id);
+        if (!lockdb_id_exists(db, lr->id)) break;
+    }
     lr->start      = start;
     lr->end        = end;
     lr->line_count = end - start + 1;
