@@ -53,13 +53,13 @@ Two enforcement layers, one binary:
 
 ### Install
 
-**Use the install script (recommended):**
+**Linux / macOS / BSD:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
 ```
 
-**Or build from source:**
+Or build from source (`gcc` + `make` required):
 
 ```bash
 git clone https://github.com/Steven-ZN/lockay.git
@@ -68,7 +68,23 @@ sudo make install          # system-wide
 make install-local          # user-local (~/.local/bin)
 ```
 
-Requirements: gcc or clang, GNU make, Linux/macOS/BSD/WSL. Zero library dependencies.
+**Windows (WSL):**
+
+```powershell
+# In WSL terminal:
+curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
+```
+
+**Windows (native, via MSYS2):**
+
+```bash
+# In MSYS2 UCRT64 terminal:
+pacman -S git gcc make
+git clone https://github.com/Steven-ZN/lockay.git
+cd lockay && make && make install-local
+```
+
+Zero library dependencies beyond a C11 compiler.
 
 ---
 
