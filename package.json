@@ -13,7 +13,7 @@
     "lockay": "bin/lockay"
   },
   "scripts": {
-    "install": "make clean && make",
+    "install": "make clean && make && echo '' && echo '  lockay installed. Next: cd /your/project && lockay init' && echo ''",
     "test": "make test"
   },
   "files": [
