@@ -53,15 +53,22 @@ Two enforcement layers, one binary:
 
 ### Install
 
-> **Note: Windows is not supported natively.** lockay relies on POSIX APIs (termios, mkstemp, etc.). Windows users should use WSL.
+> **Note: Windows is not supported natively.** lockay relies on POSIX APIs. Use WSL on Windows.
 
-**Linux / macOS / BSD:**
+**npm:**
+
+```bash
+npm install -g lockay
+lockay init
+```
+
+**Install script (Linux / macOS / BSD):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
 ```
 
-Or build from source (`gcc` + `make` required):
+**Build from source** (`gcc` + `make` required):
 
 ```bash
 git clone https://github.com/Steven-ZN/lockay.git

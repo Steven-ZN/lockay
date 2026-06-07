@@ -1,0 +1,6 @@
+build/
+packaging/
+.git/
+.gitignore
+.npmignore
+._*

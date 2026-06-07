@@ -1,0 +1,44 @@
+{
+  "name": "lockay",
+  "version": "0.1.0",
+  "description": "chmod for lines of code. sudo for autonomous agents.",
+  "homepage": "https://github.com/Steven-ZN/lockay",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Steven-ZN/lockay.git"
+  },
+  "license": "MIT",
+  "author": "Steven-ZN",
+  "bin": {
+    "lockay": "./build/lockay"
+  },
+  "scripts": {
+    "install": "make clean && make && make install-local",
+    "test": "make test",
+    "postinstall": "echo 'lockay installed. Run: npx lockay init'"
+  },
+  "files": [
+    "src/",
+    "tests/",
+    "Makefile",
+    "install.sh",
+    "README.md",
+    "README_CN.md",
+    "info.png"
+  ],
+  "keywords": [
+    "agent",
+    "capability",
+    "security",
+    "sandbox",
+    "lock",
+    "code-lock",
+    "command-gate",
+    "llm",
+    "coding-agent"
+  ],
+  "os": ["darwin", "linux"],
+  "engines": {
+    "node": ">=14"
+  }
+}
