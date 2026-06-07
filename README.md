@@ -58,7 +58,7 @@ Two enforcement layers, one binary:
 **npm:**
 
 ```bash
-npm install -g lockay
+npm install -g lockayy
 lockay init
 ```
 
