@@ -50,8 +50,7 @@ LockDB *lockdb_load(const char *repo_root) {
         if (llen > 0 && line[llen - 1] == '\n') line[--llen] = '\0';
         if (llen > 0 && line[llen - 1] == '\r') line[--llen] = '\0';
 
-        /* Parse: file|id|start|end|content_sha256|before_sha256|after_sha256|owner|created|reason */
-        /* We need to handle reason containing | chars — reason is the last field */
+        /* Parse: file|id|start|end|content_sha256|before_sha256|after_sha256|commit|owner|created|reason */
 
         char *file       = line;
         char *id         = strchr(file, '|');      if (!id)   continue; *id++ = '\0';
@@ -60,7 +59,8 @@ LockDB *lockdb_load(const char *repo_root) {
         char *content_h  = strchr(end_s, '|');      if (!content_h) continue; *content_h++ = '\0';
         char *before_h   = strchr(content_h, '|');  if (!before_h) continue; *before_h++ = '\0';
         char *after_h    = strchr(before_h, '|');   if (!after_h) continue; *after_h++ = '\0';
-        char *owner      = strchr(after_h, '|');    if (!owner)  continue; *owner++ = '\0';
+        char *commit     = strchr(after_h, '|');    if (!commit)  continue; *commit++ = '\0';
+        char *owner      = strchr(commit, '|');      if (!owner)  continue; *owner++ = '\0';
         char *created    = strchr(owner, '|');      if (!created) continue; *created++ = '\0';
         char *reason     = strchr(created, '|');    if (!reason) continue; *reason++ = '\0';
 
@@ -79,6 +79,8 @@ LockDB *lockdb_load(const char *repo_root) {
         sha256_parse_hex(content_h, &lr->content_hash);
         sha256_parse_hex(before_h, &lr->before_hash);
         sha256_parse_hex(after_h,  &lr->after_hash);
+        strncpy(lr->commit, commit, sizeof(lr->commit) - 1);
+        lr->commit[sizeof(lr->commit) - 1] = '\0';
         lr->owner     = strdup(owner);
         lr->created_at = strdup(created);
         lr->reason    = strdup(reason);
@@ -101,7 +103,7 @@ int lockdb_save(const LockDB *db) {
     if (!f) return -1;
 
     fprintf(f, "# linelock database v1\n");
-    fprintf(f, "# file|id|start|end|content_sha256|before_sha256|after_sha256|owner|created|reason\n");
+    fprintf(f, "# file|id|start|end|content_sha256|before_sha256|after_sha256|commit|owner|created|reason\n");
     fprintf(f, "# Generated: %s\n\n", "auto");
 
     for (int i = 0; i < db->count; i++) {
@@ -111,9 +113,9 @@ int lockdb_save(const LockDB *db) {
         sha256_hex(&lr->before_hash,  bh);
         sha256_hex(&lr->after_hash,   ah);
 
-        fprintf(f, "%s|%s|%d|%d|%s|%s|%s|%s|%s|%s\n",
+        fprintf(f, "%s|%s|%d|%d|%s|%s|%s|%s|%s|%s|%s\n",
                 lr->file, lr->id, lr->start, lr->end,
-                ch, bh, ah,
+                ch, bh, ah, lr->commit,
                 lr->owner, lr->created_at, lr->reason);
     }
 
@@ -171,6 +173,7 @@ const char *lockdb_add(LockDB *db, const char *file,
                        const Sha256Digest *content_hash,
                        const Sha256Digest *before_hash,
                        const Sha256Digest *after_hash,
+                       const char *commit,
                        const char *owner, const char *reason) {
     if (db->count >= db->cap) {
         db->cap *= 2;
@@ -192,6 +195,8 @@ const char *lockdb_add(LockDB *db, const char *file,
     lr->content_hash = *content_hash;
     lr->before_hash  = *before_hash;
     lr->after_hash   = *after_hash;
+    strncpy(lr->commit, commit ? commit : "", sizeof(lr->commit) - 1);
+    lr->commit[sizeof(lr->commit) - 1] = '\0';
     lr->owner      = strdup(owner ? owner : "unknown");
     lr->reason     = strdup(reason ? reason : "");
 

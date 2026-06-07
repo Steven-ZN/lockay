@@ -111,6 +111,8 @@ lockay run "git push origin main"   # 默认拒绝
 | 看内容 | `lockay show <文件>` | 被锁行有视觉标记 |
 | 解锁 | `lockay unlock <锁ID>` | 用 `status` 输出的 ID 解锁 |
 | 校验 | `lockay check <文件>` | 检查锁区内容是否被篡改 |
+| 恢复 | `lockay restore <文件>` | 从备份恢复被篡改的锁区 |
+| 守护 | `lockay watch [间隔秒]` | 后台监控，检测到篡改自动恢复 |
 
 ---
 

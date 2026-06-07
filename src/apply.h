@@ -35,4 +35,10 @@ int apply_unlock(const char *repo_root, const char *id);
 /* Check lock integrity for a file */
 int apply_check(const char *repo_root, const char *file);
 
+/* Restore tampered locked content from backup */
+int apply_restore(const char *repo_root, const char *file);
+
+/* Watch daemon: poll files and auto-restore tampered locks */
+int apply_watch(const char *repo_root, int interval_sec);
+
 #endif

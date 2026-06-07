@@ -8,6 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
 
 /* ---------- Internal helpers ---------- */
 
@@ -190,9 +194,22 @@ int apply_lock(const char *repo_root, const char *file,
 
     hash_context(fb, start, end, &before_hash, &after_hash);
 
+    /* Get current git commit */
+    char git_commit[41] = "";
+    char gcmd[512];
+    snprintf(gcmd, sizeof(gcmd), "git -C %s rev-parse HEAD 2>/dev/null", repo_root);
+    FILE *gp = popen(gcmd, "r");
+    if (gp) {
+        if (!fgets(git_commit, sizeof(git_commit), gp)) git_commit[0] = '\0';
+        size_t gl = strlen(git_commit);
+        while (gl > 0 && (git_commit[gl-1] == '\n' || git_commit[gl-1] == '\r'))
+            git_commit[--gl] = '\0';
+        pclose(gp);
+    }
+
     const char *id = lockdb_add(db, file, start, end,
                                 &content_hash, &before_hash, &after_hash,
-                                owner, reason);
+                                git_commit, owner, reason);
 
     if (lockdb_save(db) != 0) {
         fprintf(stderr, "ERROR: failed to save lock database\n");
@@ -550,4 +567,157 @@ int apply_insert_line(const char *repo_root, const char *file,
 int apply_delete_lines(const char *repo_root, const char *file,
                        int start, int end) {
     return apply_line_op(repo_root, file, start, end, NULL, 2);
+}
+
+/* ---------- Restore ---------- */
+
+int apply_restore(const char *repo_root, const char *file) {
+    char *fpath = full_path(repo_root, file);
+    LockDB *db = lockdb_load(repo_root);
+    FileBuf *fb = filebuf_load(fpath);
+
+    if (!fb) {
+        fprintf(stderr, "ERROR: cannot open %s\n", file);
+        lockdb_free(db);
+        free(fpath);
+        return APPLY_ERROR;
+    }
+
+    LockRecord *fl[64];
+    int n = lockdb_get_file_locks(db, file, fl, 64);
+    int restored = 0;
+
+    for (int i = 0; i < n; i++) {
+        LockRecord *lr = fl[i];
+
+        /* Check if current content matches locked hash */
+        Sha256Digest cur_hash;
+        const char **ptrs = malloc((size_t)lr->line_count * sizeof(char *));
+        for (int j = 0; j < lr->line_count; j++)
+            ptrs[j] = fb->lines[lr->start - 1 + j].text;
+        sha256_hash_lines(ptrs, lr->line_count, &cur_hash);
+        free(ptrs);
+
+        if (sha256_eq(&cur_hash, &lr->content_hash))
+            continue; /* Intact */
+
+        /* Use git to get original content for locked lines */
+        if (lr->commit[0] == '\0') continue; /* No git commit stored */
+
+        char gitcmd[1024];
+        snprintf(gitcmd, sizeof(gitcmd),
+                 "git -C %s show %s:%s 2>/dev/null", repo_root, lr->commit, file);
+        FILE *gf = popen(gitcmd, "r");
+        if (!gf) continue;
+
+        /* Read the git version into a temporary buffer */
+        char **git_lines = malloc((size_t)lr->end * sizeof(char *));
+        int git_count = 0;
+        char *line = NULL;
+        size_t linesz = 0;
+        while (getline(&line, &linesz, gf) != -1 && git_count < lr->end) {
+            size_t llen = strlen(line);
+            if (llen > 0 && line[llen-1] == '\n') line[--llen] = '\0';
+            git_lines[git_count] = strdup(line);
+            git_count++;
+        }
+        free(line);
+        pclose(gf);
+
+        /* Restore locked lines from git version */
+        if (git_count >= lr->end) {
+            for (int j = 0; j < lr->line_count; j++) {
+                int line_idx = lr->start - 1 + j;
+                if (line_idx < git_count)
+                    filebuf_set_line(fb, lr->start + j, git_lines[line_idx]);
+            }
+        }
+        for (int j = 0; j < git_count; j++) free(git_lines[j]);
+        free(git_lines);
+
+        printf("Restored lock %s (%s lines %d-%d)\n",
+               lr->id, file, lr->start, lr->end);
+        restored++;
+    }
+
+    if (restored > 0) {
+        if (filebuf_save_atomic(fb, fpath) != 0) {
+            fprintf(stderr, "ERROR: failed to save restored file\n");
+            lockdb_free(db);
+            filebuf_free(fb);
+            free(fpath);
+            return APPLY_ERROR;
+        }
+        printf("Restored %d locked region(s) in %s\n", restored, file);
+    } else if (n > 0) {
+        printf("All %d lock(s) intact in %s\n", n, file);
+    } else {
+        printf("No locks for %s\n", file);
+    }
+
+    lockdb_free(db);
+    filebuf_free(fb);
+    free(fpath);
+    return APPLY_OK;
+}
+
+/* ---------- Watch daemon ---------- */
+
+int apply_watch(const char *repo_root, int interval_sec) {
+    LockDB *db = lockdb_load(repo_root);
+
+    if (db->count == 0) {
+        printf("No locks to watch. Use 'lockay lock' first.\n");
+        lockdb_free(db);
+        return APPLY_OK;
+    }
+
+    printf("Watching %d lock(s) across %d unique file(s).\n",
+           db->count, 0); /* Count unique files below */
+
+    /* Count unique files and record last mtimes */
+    typedef struct { char path[512]; time_t mtime; } WatchedFile;
+    WatchedFile *wf = calloc((size_t)db->count, sizeof(WatchedFile));
+    int wf_count = 0;
+
+    for (int i = 0; i < db->count; i++) {
+        LockRecord *lr = &db->locks[i];
+        /* Check if already in wf */
+        bool found = false;
+        for (int j = 0; j < wf_count; j++) {
+            if (strcmp(wf[j].path, lr->file) == 0) { found = true; break; }
+        }
+        if (!found) {
+            strncpy(wf[wf_count].path, lr->file, sizeof(wf[wf_count].path) - 1);
+            char *fpath = full_path(repo_root, lr->file);
+            struct stat st;
+            wf[wf_count].mtime = (stat(fpath, &st) == 0) ? st.st_mtime : 0;
+            free(fpath);
+            wf_count++;
+        }
+    }
+
+    printf("Watching %d unique file(s), polling every %ds.\n", wf_count, interval_sec);
+    printf("Press Ctrl+C to stop.\n");
+
+    while (1) {
+        for (int i = 0; i < wf_count; i++) {
+            char *fpath = full_path(repo_root, wf[i].path);
+            struct stat st;
+            if (stat(fpath, &st) != 0) { free(fpath); continue; }
+
+            if (st.st_mtime != wf[i].mtime) {
+                wf[i].mtime = st.st_mtime;
+                printf("\n[%ld] Change detected: %s\n", (long)time(NULL), wf[i].path);
+                apply_restore(repo_root, wf[i].path);
+                fflush(stdout);
+            }
+            free(fpath);
+        }
+        sleep((unsigned)interval_sec);
+    }
+
+    free(wf);
+    lockdb_free(db);
+    return APPLY_OK;
 }

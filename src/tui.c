@@ -364,7 +364,7 @@ static void tui_lock_selection(TuiCtx *t) {
     const char *env_user = getenv("USER");
     const char *id = lockdb_add(t->db, t->file, line, line,
                                 &content_hash, &before_hash, &after_hash,
-                                env_user ? env_user : "unknown",
+                                "", env_user ? env_user : "unknown",
                                 "locked from TUI");
 
     lockdb_save(t->db);

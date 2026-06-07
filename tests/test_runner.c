@@ -352,7 +352,7 @@ TEST(lockdb_add_find) {
     sha256_hash_str("after",   &ah);
 
     const char *id = lockdb_add(db, "test.c", 10, 20, &ch, &bh, &ah,
-                                 "steven", "test lock");
+                                 "", "steven", "test lock");
     CHECK(id != NULL, "add lock returns id");
     CHECK(db->count == 1, "db has 1 lock");
 
@@ -378,8 +378,8 @@ TEST(lockdb_save_load) {
         sha256_hash_str("alpha", &ch);
         sha256_hash_str("bef",   &bh);
         sha256_hash_str("aft",   &ah);
-        lockdb_add(db, "a.c", 1, 3, &ch, &bh, &ah, "user1", "first");
-        lockdb_add(db, "b.c", 5, 8, &ch, &bh, &ah, "user2", "second");
+        lockdb_add(db, "a.c", 1, 3, &ch, &bh, &ah, "", "user1", "first");
+        lockdb_add(db, "b.c", 5, 8, &ch, &bh, &ah, "", "user2", "second");
         lockdb_save(db);
         lockdb_free(db);
     }
@@ -405,8 +405,8 @@ TEST(lockdb_remove) {
     sha256_hash_str("y", &bh);
     sha256_hash_str("z", &ah);
 
-    const char *id1 = lockdb_add(db, "f.c", 1, 1, &ch, &bh, &ah, "o", "r");
-    const char *id2 = lockdb_add(db, "g.c", 2, 2, &ch, &bh, &ah, "o", "r");
+    const char *id1 = lockdb_add(db, "f.c", 1, 1, &ch, &bh, &ah, "", "o", "r");
+    const char *id2 = lockdb_add(db, "g.c", 2, 2, &ch, &bh, &ah, "", "o", "r");
     CHECK(db->count == 2, "two locks");
 
     /* Save id strings before remove (pointers into db become invalid) */
@@ -432,7 +432,7 @@ TEST(lockdb_is_line_locked) {
     Sha256Digest ch;
     sha256_hash_str("x", &ch);
 
-    lockdb_add(db, "f.c", 10, 20, &ch, &ch, &ch, "o", "r");
+    lockdb_add(db, "f.c", 10, 20, &ch, &ch, &ch, "", "o", "r");
 
     CHECK(lockdb_is_line_locked(db, "f.c", 5) == NULL, "line 5 not locked");
     CHECK(lockdb_is_line_locked(db, "f.c", 10) != NULL, "line 10 locked");
@@ -452,9 +452,9 @@ TEST(lockdb_file_locks) {
     Sha256Digest ch;
     sha256_hash_str("x", &ch);
 
-    lockdb_add(db, "a.c", 1, 1, &ch, &ch, &ch, "o", "");
-    lockdb_add(db, "a.c", 5, 5, &ch, &ch, &ch, "o", "");
-    lockdb_add(db, "b.c", 3, 3, &ch, &ch, &ch, "o", "");
+    lockdb_add(db, "a.c", 1, 1, &ch, &ch, &ch, "", "o", "");
+    lockdb_add(db, "a.c", 5, 5, &ch, &ch, &ch, "", "o", "");
+    lockdb_add(db, "b.c", 3, 3, &ch, &ch, &ch, "", "o", "");
 
     LockRecord *fl[8];
     int n = lockdb_get_file_locks(db, "a.c", fl, 8);
@@ -510,7 +510,7 @@ TEST(validate_intact_lock) {
     sha256_hash_lines(l2, 1, &bh);  /* before context doesn't matter much here */
     sha256_hash_lines(l3, 1, &ah);
 
-    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "steven", "test");
+    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "", "steven", "test");
 
     ValidationResult vr = validate_locks(db, "test.c", fb);
     CHECK(vr.passed, "unchanged lock passes");
@@ -537,7 +537,7 @@ TEST(validate_violated_lock) {
     sha256_hash_str("before", &bh);
     sha256_hash_str("after", &ah);
 
-    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "steven", "test");
+    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "", "steven", "test");
 
     /* Modify locked content */
     filebuf_set_line(fb, 2, "modified content!");
@@ -569,7 +569,7 @@ TEST(validate_reanchor) {
     sha256_hash_str("b", &bh);
     sha256_hash_str("a", &ah);
 
-    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "steven", "test");
+    lockdb_add(db, "test.c", 2, 3, &ch, &bh, &ah, "", "steven", "test");
 
     /* Insert lines before lock — locked content shifts down */
     filebuf_insert_line(fb, 1, "new header line 1");
@@ -973,6 +973,117 @@ TEST(edge_unlock_nonexistent) {
     rmrf(dir);
 }
 
+/* ================================================================
+ * Restore Tests
+ * ================================================================ */
+
+TEST(restore_tampered_content) {
+    char *dir = tmpdir();
+    char path[256];
+    snprintf(path, sizeof(path), "%s/api.py", dir);
+
+    /* Init git so restore can use it as source of truth */
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "cd %s && git init && git config user.email t@t && git config user.name t", dir);
+    if (system(cmd) != 0) { /* ok */ }
+
+    write_file(path, "def public():\n    return 42\n\n# editable\n");
+    snprintf(cmd, sizeof(cmd), "cd %s && git add api.py && git commit -m init", dir);
+    if (system(cmd) != 0) { /* ok */ }
+
+    /* Lock lines 1-2 */
+    int rc = apply_lock(dir, "api.py", 1, 2, "steven", "API");
+    CHECK(rc == APPLY_OK, "lock created");
+
+    /* Tamper with locked content (simulate nano) */
+    write_file(path, "def hacked():\n    return 999\n\n# editable\n");
+
+    /* Verify tampering detected */
+    rc = apply_check(dir, "api.py");
+    CHECK(rc == APPLY_DENIED, "tampering detected");
+
+    /* Restore from git */
+    rc = apply_restore(dir, "api.py");
+    CHECK(rc == APPLY_OK, "restore succeeds");
+
+    /* Verify restored */
+    FileBuf *fb = filebuf_load(path);
+    CHECK(strcmp(fb->lines[0].text, "def public():") == 0, "line 1 restored");
+    CHECK(strcmp(fb->lines[1].text, "    return 42") == 0, "line 2 restored");
+    CHECK(strcmp(fb->lines[2].text, "") == 0, "blank line intact");
+    CHECK(strcmp(fb->lines[3].text, "# editable") == 0, "editable line intact");
+    filebuf_free(fb);
+
+    rc = apply_check(dir, "api.py");
+    CHECK(rc == APPLY_OK, "check passes after restore");
+
+    rmrf(dir);
+}
+
+TEST(restore_intact_noop) {
+    char *dir = tmpdir();
+    char path[256];
+    snprintf(path, sizeof(path), "%s/f.c", dir);
+    write_file(path, "safe\n");
+
+    apply_lock(dir, "f.c", 1, 1, "steven", "test");
+
+    /* Restore without tampering */
+    int rc = apply_restore(dir, "f.c");
+    CHECK(rc == APPLY_OK, "restore on intact file is no-op");
+
+    FileBuf *fb = filebuf_load(path);
+    CHECK(strcmp(fb->lines[0].text, "safe") == 0, "content unchanged");
+    filebuf_free(fb);
+
+    rmrf(dir);
+}
+
+TEST(restore_nonexistent_file) {
+    char *dir = tmpdir();
+    int rc = apply_restore(dir, "nonexistent.txt");
+    CHECK(rc == APPLY_ERROR, "restore nonexistent file returns error");
+    rmrf(dir);
+}
+
+TEST(restore_git_based) {
+    /* Verify git commit is stored with lock */
+    char *dir = tmpdir();
+    char path[256];
+    snprintf(path, sizeof(path), "%s/r.py", dir);
+
+    /* Init git repo */
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "cd %s && git init && git config user.email test@t && git config user.name t", dir);
+    if (system(cmd) != 0) { /* ok */ }
+
+    write_file(path, "def api():\n    return 42\n");
+    snprintf(cmd, sizeof(cmd), "cd %s && git add r.py && git commit -m init", dir);
+    if (system(cmd) != 0) { /* ok */ }
+
+    apply_lock(dir, "r.py", 1, 2, "steven", "git-backed");
+
+    /* Verify commit stored */
+    LockDB *db = lockdb_load(dir);
+    LockRecord *lr = lockdb_is_line_locked(db, "r.py", 1);
+    CHECK(lr != NULL, "lock exists");
+    CHECK(strlen(lr->commit) == 40, "git commit stored");
+
+    /* Tamper */
+    write_file(path, "def hacked():\n    return 999\n");
+    int rc = apply_restore(dir, "r.py");
+    CHECK(rc == APPLY_OK, "restore via git succeeds");
+
+    /* Verify */
+    FileBuf *fb = filebuf_load(path);
+    CHECK(strcmp(fb->lines[0].text, "def api():") == 0, "restored from git");
+    CHECK(strcmp(fb->lines[1].text, "    return 42") == 0, "restored from git");
+
+    filebuf_free(fb);
+    lockdb_free(db);
+    rmrf(dir);
+}
+
 TEST(edge_lock_overlap) {
     char *dir = tmpdir();
     char path[256];
@@ -1199,6 +1310,11 @@ int main(void) {
     RUN(edge_unlock_nonexistent);
     RUN(edge_lock_overlap);
 
+    printf("\nRestore:\n");
+    RUN(restore_tampered_content);
+    RUN(restore_intact_noop);
+    RUN(restore_nonexistent_file);
+    RUN(restore_git_based);
     printf("\nCmdLock:\n");
     RUN(cmdlock_parse_simple);
     RUN(cmdlock_parse_quoted);

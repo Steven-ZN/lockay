@@ -20,6 +20,8 @@ static void usage(const char *prog) {
     printf("  status [file]                  Show lock status\n");
     printf("  apply  <file> <patch>          Apply a patch (respects locks)\n");
     printf("  check  <file>                  Verify lock integrity\n");
+    printf("  restore <file>                 Restore tampered locked lines\n");
+    printf("  watch [interval]               Daemon: auto-restore on change\n");
     printf("  set    <file> <line> <text>    Set a line (agent CLI)\n");
     printf("  insert <file> <line> <text>    Insert before line (agent CLI)\n");
     printf("  delete <file> <start> <end>    Delete lines (agent CLI)\n");
@@ -328,7 +330,16 @@ int main(int argc, char *argv[]) {
     if (strcmp(cmd, "unlock") == 0) return cmd_unlock(argc, argv, repo);
     if (strcmp(cmd, "status") == 0) return cmd_status(argc, argv, repo);
     if (strcmp(cmd, "apply")  == 0) return cmd_apply(argc, argv, repo);
-    if (strcmp(cmd, "check")  == 0) return cmd_check(argc, argv, repo);
+    if (strcmp(cmd, "check")   == 0) return cmd_check(argc, argv, repo);
+    if (strcmp(cmd, "restore") == 0) {
+        if (argc < 3) { fprintf(stderr, "Usage: lockay restore <file>\n"); return 1; }
+        return apply_restore(repo, argv[2]);
+    }
+    if (strcmp(cmd, "watch") == 0) {
+        int interval = argc > 2 ? atoi(argv[2]) : 2;
+        if (interval < 1) interval = 2;
+        return apply_watch(repo, interval);
+    }
     if (strcmp(cmd, "set")    == 0) return cmd_set(argc, argv, repo);
     if (strcmp(cmd, "insert") == 0) return cmd_insert(argc, argv, repo);
     if (strcmp(cmd, "delete") == 0) return cmd_delete(argc, argv, repo);

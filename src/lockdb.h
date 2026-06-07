@@ -14,6 +14,7 @@ typedef struct {
     Sha256Digest content_hash;  /* SHA-256 of locked lines */
     Sha256Digest before_hash;   /* SHA-256 of 3 lines before lock */
     Sha256Digest after_hash;    /* SHA-256 of 3 lines after lock */
+    char     commit[41];        /* git commit hash (40 hex chars) */
     char    *owner;
     char    *reason;
     char    *created_at;
@@ -39,6 +40,7 @@ const char *lockdb_add(LockDB *db, const char *file,
                        const Sha256Digest *content_hash,
                        const Sha256Digest *before_hash,
                        const Sha256Digest *after_hash,
+                       const char *commit,
                        const char *owner, const char *reason);
 
 /* Remove a lock by id. Returns 0 on success, -1 if not found. */
