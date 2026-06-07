@@ -744,52 +744,61 @@ int apply_watch(const char *repo_root, int interval_sec) {
         return APPLY_OK;
     }
 
-    printf("Watching %d lock(s) across %d unique file(s).\n",
-           db->count, 0); /* Count unique files below */
-
-    /* Count unique files and record last mtimes */
-    typedef struct { char path[512]; time_t mtime; } WatchedFile;
-    WatchedFile *wf = calloc((size_t)db->count, sizeof(WatchedFile));
-    int wf_count = 0;
-
+    /* Count unique locked files */
+    char *files[256];
+    int nf = 0;
     for (int i = 0; i < db->count; i++) {
-        LockRecord *lr = &db->locks[i];
-        /* Check if already in wf */
-        bool found = false;
-        for (int j = 0; j < wf_count; j++) {
-            if (strcmp(wf[j].path, lr->file) == 0) { found = true; break; }
-        }
-        if (!found) {
-            strncpy(wf[wf_count].path, lr->file, sizeof(wf[wf_count].path) - 1);
-            char *fpath = full_path(repo_root, lr->file);
-            struct stat st;
-            wf[wf_count].mtime = (stat(fpath, &st) == 0) ? st.st_mtime : 0;
-            free(fpath);
-            wf_count++;
-        }
+        bool seen = false;
+        for (int j = 0; j < nf; j++)
+            if (strcmp(files[j], db->locks[i].file) == 0) { seen = true; break; }
+        if (!seen && nf < 256) files[nf++] = db->locks[i].file;
     }
 
-    printf("Watching %d unique file(s), polling every %ds.\n", wf_count, interval_sec);
-    printf("Press Ctrl+C to stop.\n");
+    printf("Watching %d lock(s) across %d file(s), interval %ds.\n",
+           db->count, nf, interval_sec);
+    printf("Auto-restore via git on change. Press Ctrl+C to stop.\n\n");
 
     while (1) {
-        for (int i = 0; i < wf_count; i++) {
-            char *fpath = full_path(repo_root, wf[i].path);
-            struct stat st;
-            if (stat(fpath, &st) != 0) { free(fpath); continue; }
-
-            if (st.st_mtime != wf[i].mtime) {
-                wf[i].mtime = st.st_mtime;
-                printf("\n[%ld] Change detected: %s\n", (long)time(NULL), wf[i].path);
-                apply_restore(repo_root, wf[i].path);
-                fflush(stdout);
-            }
-            free(fpath);
-        }
         sleep((unsigned)interval_sec);
+
+        /* git diff --name-only to find changed files */
+        FILE *gd = popen("git diff --name-only 2>/dev/null", "r");
+        if (!gd) continue;
+
+        char changed[256][512];
+        int nc = 0;
+        char line[512];
+        while (fgets(line, sizeof(line), gd) && nc < 256) {
+            size_t l = strlen(line);
+            if (l > 0 && line[l-1] == '\n') line[--l] = '\0';
+            if (l > 0) { snprintf(changed[nc], sizeof(changed[nc]), "%s", line); nc++; }
+        }
+        pclose(gd);
+
+        /* Check each changed file against locks */
+        for (int i = 0; i < nc; i++) {
+            for (int j = 0; j < nf; j++) {
+                if (strcmp(changed[i], files[j]) != 0) continue;
+
+                /* Auto-restore silently */
+                apply_auto_restore(repo_root, files[j]);
+
+                /* Log to audit */
+                time_t now = time(NULL);
+                char ts[32];
+                strftime(ts, sizeof(ts), "%Y-%m-%dT%H:%M:%S", localtime(&now));
+                char logpath[640];
+                snprintf(logpath, sizeof(logpath), "%s/.lockay/audit.log", repo_root);
+                FILE *al = fopen(logpath, "a");
+                if (al) {
+                    fprintf(al, "%s | WATCH | auto-restored %s\n", ts, files[j]);
+                    fclose(al);
+                }
+                break;
+            }
+        }
     }
 
-    free(wf);
     lockdb_free(db);
     return APPLY_OK;
 }
