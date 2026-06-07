@@ -73,6 +73,9 @@ make install-local          # 用户级安装 (~/.local/bin)
 ```bash
 cd /your/project
 
+# 初始化 lockay (创建 .lockay/ 和 .linelock/)
+lockay init
+
 # 生成命令策略
 lockay policy
 

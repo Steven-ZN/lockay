@@ -77,6 +77,9 @@ Requirements: gcc or clang, GNU make, Linux/macOS/BSD/WSL. Zero library dependen
 ```bash
 cd /your/project
 
+# Initialize lockay (creates .lockay/ and .linelock/)
+lockay init
+
 # Generate command policy
 lockay policy
 

@@ -1,7 +1,5 @@
 #!/bin/sh
-# lockay interactive installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
-
+# lockay interactive installer (EN/ZH)
 set -e
 
 # ============================================================
@@ -11,140 +9,74 @@ echo ""
 echo "  lockay installer v0.1.0"
 echo "  ======================="
 echo ""
-echo "  Select language / :"
-echo "    [1] English"
-echo "    [2]"
+echo "  [1] English"
+echo "  [2] Chinese / 中文"
 echo ""
 
-if [ -t 0 ]; then
-    read -r LANG_CHOICE
-else
-    read -r LANG_CHOICE </dev/tty 2>/dev/null || LANG_CHOICE="1"
-fi
-
-if [ "$LANG_CHOICE" = "2" ]; then
-    LANG="zh"
-else
-    LANG="en"
-fi
+if [ -t 0 ]; then read -r LANG_CHOICE; else read -r LANG_CHOICE </dev/tty 2>/dev/null || LANG_CHOICE="1"; fi
+[ "$LANG_CHOICE" = "2" ] && LANG="zh" || LANG="en"
 
 # ============================================================
 # Message helpers
 # ============================================================
-msg_step() {
-    if [ "$LANG" = "zh" ]; then
-        echo ""
-        echo "  [$1/$TOTAL_STEPS] $2"
-        echo "  $(echo "$2" | sed 's/./-/g')"
-    else
-        echo ""
-        echo "  [$1/$TOTAL_STEPS] $2"
-    fi
-}
+_step()   { echo ""; echo "  [$1/$TOTAL_STEPS] $2"; }
+_w()      { [ "$LANG" = "zh" ] && echo "  用途: $1" || echo "  What: $1"; }
+_y()      { [ "$LANG" = "zh" ] && echo "  原因: $1" || echo "  Why:  $1"; }
+_ok()     { [ "$LANG" = "zh" ] && echo "  结果: OK" || echo "  Result: OK"; }
 
-msg_what() {
-    if [ "$LANG" = "zh" ]; then
-        echo "  : $1"
-    else
-        echo "  What: $1"
-    fi
-}
-
-msg_why() {
-    if [ "$LANG" = "zh" ]; then
-        echo "  : $1"
-    else
-        echo "  Why:  $1"
-    fi
-}
-
-ask_confirm() {
-    if [ "$LANG" = "zh" ]; then
-        printf "  ? [Y/n] "
-    else
-        printf "  Proceed? [Y/n] "
-    fi
-    if [ -t 0 ]; then
-        read -r CONFIRM
-    else
-        read -r CONFIRM </dev/tty 2>/dev/null || CONFIRM="y"
-    fi
-    case "$CONFIRM" in
-        [Yy]|[Yy][Ee][Ss]|"") return 0 ;;
-        *) return 1 ;;
-    esac
+_ask() {
+    [ "$LANG" = "zh" ] && printf "  继续? [Y/n] " || printf "  Proceed? [Y/n] "
+    if [ -t 0 ]; then read -r CONFIRM; else read -r CONFIRM </dev/tty 2>/dev/null || CONFIRM="y"; fi
+    case "$CONFIRM" in [Yy]|[Yy][Ee][Ss]|"") return 0 ;; *) return 1 ;; esac
 }
 
 TOTAL_STEPS=5
-CURRENT_STEP=0
-
-next_step() {
-    CURRENT_STEP=$((CURRENT_STEP + 1))
-}
+STEP=0
+_n() { STEP=$((STEP + 1)); }
 
 # ============================================================
 # Welcome
 # ============================================================
 if [ "$LANG" = "zh" ]; then
     echo ""
-    echo "  lockay:  "
+    echo "  lockay: 给 coding agent 用的受控 shell"
     echo ""
-    echo "  5 "
-    echo "   "
-    echo ""
+    echo "  安装过程共 5 步，每步会解释做什么、为什么、等你确认再执行。"
 else
     echo ""
     echo "  lockay: capability shell for coding agents"
     echo ""
-    echo "  This installer will run 5 steps."
-    echo "  Each step is explained before execution."
-    echo ""
+    echo "  5 steps. Each explains what, why, and waits for confirmation."
 fi
 
 # ============================================================
 # Step 1: Platform check
 # ============================================================
-next_step
+_n
 if [ "$LANG" = "zh" ]; then
-    msg_step "$CURRENT_STEP" ""
-    msg_what "Linux/macOS  gcc make"
-    msg_why "lockay  C11  POSIX Linux  macOS  BSD  WSL"
+    _step "$STEP" "检测编译环境"
+    _w "确认是 Linux/macOS，有 gcc 和 make"
+    _y "lockay 是 C11 + POSIX 程序，能在 Linux/macOS/BSD/WSL 上跑"
 else
-    msg_step "$CURRENT_STEP" "Check build environment"
-    msg_what "Verify Linux/macOS, gcc, make are available"
-    msg_why "lockay is a C11 program using POSIX APIs. Works on Linux, macOS, BSD, WSL."
+    _step "$STEP" "Check build environment"
+    _w "Verify Linux/macOS, gcc, make are available"
+    _y "lockay is a C11 program using POSIX APIs. Works on Linux, macOS, BSD, WSL."
 fi
 
 UNAME_S=$(uname -s)
-if [ "$UNAME_S" = "Darwin" ]; then
-    if [ "$LANG" = "zh" ]; then
-        echo "  : macOS"
-    else
-        echo "  Detected: macOS"
-    fi
-elif [ "$UNAME_S" = "Linux" ]; then
-    if [ "$LANG" = "zh" ]; then
-        echo "  : Linux"
-    else
-        echo "  Detected: Linux"
-    fi
-else
-    if [ "$LANG" = "zh" ]; then
-        echo "  /: $UNAME_S  "
-    else
-        echo "  Warning: untested platform ($UNAME_S), may still work"
-    fi
-fi
+case "$UNAME_S" in
+    Darwin) [ "$LANG" = "zh" ] && echo "  平台: macOS" || echo "  Platform: macOS" ;;
+    Linux)  [ "$LANG" = "zh" ] && echo "  平台: Linux"  || echo "  Platform: Linux"  ;;
+    *)      [ "$LANG" = "zh" ] && echo "  注意: 未测试平台 ($UNAME_S)，可能仍可工作" || echo "  Warning: untested platform ($UNAME_S), may still work" ;;
+esac
 
 if ! command -v gcc >/dev/null 2>&1 && ! command -v cc >/dev/null 2>&1 && ! command -v clang >/dev/null 2>&1; then
     if [ "$LANG" = "zh" ]; then
-        echo ""
-        echo "  :  C  "
+        echo "  错误: 没有找到 C 编译器，请先安装:"
         echo "    Ubuntu/Debian: sudo apt install build-essential"
         echo "    Fedora:        sudo dnf install gcc make"
         echo "    macOS:         xcode-select --install"
     else
-        echo ""
         echo "  ERROR: No C compiler found. Install one first:"
         echo "    Ubuntu/Debian: sudo apt install build-essential"
         echo "    Fedora:        sudo dnf install gcc make"
@@ -152,122 +84,89 @@ if ! command -v gcc >/dev/null 2>&1 && ! command -v cc >/dev/null 2>&1 && ! comm
     fi
     exit 1
 fi
-
 if ! command -v make >/dev/null 2>&1; then
-    if [ "$LANG" = "zh" ]; then
-        echo "  :  make"
-    else
-        echo "  ERROR: make not found."
-    fi
+    [ "$LANG" = "zh" ] && echo "  错误: 没有 make" || echo "  ERROR: make not found."
     exit 1
 fi
-
-if [ "$LANG" = "zh" ]; then
-    echo "  : OK"
-else
-    echo "  Result: OK"
-fi
+_ok
 
 # ============================================================
-# Step 2: Source acquisition
+# Step 2: Source code
 # ============================================================
-next_step
+_n
 if [ -f Makefile ] && [ -f src/main.c ]; then
     SRCDIR="."
     if [ "$LANG" = "zh" ]; then
-        msg_step "$CURRENT_STEP" ""
-        msg_what ""
+        _step "$STEP" "定位源码"
+        _w "当前已在 lockay 源码目录中"
     else
-        msg_step "$CURRENT_STEP" "Locate source code"
-        msg_what "Already in the lockay source directory"
+        _step "$STEP" "Locate source code"
+        _w "Already in the lockay source directory"
     fi
 else
     SRCDIR="/tmp/lockay-build-$$"
     if [ "$LANG" = "zh" ]; then
-        msg_step "$CURRENT_STEP" "GitHub "
-        msg_what "git clone https://github.com/Steven-ZN/lockay.git  /tmp"
-        msg_why " "
+        _step "$STEP" "从 GitHub 下载源码"
+        _w "git clone https://github.com/Steven-ZN/lockay.git 到 /tmp"
+        _y "需要源码来编译"
     else
-        msg_step "$CURRENT_STEP" "Download source from GitHub"
-        msg_what "git clone https://github.com/Steven-ZN/lockay.git to /tmp"
-        msg_why "Need the source code to compile from"
+        _step "$STEP" "Download source from GitHub"
+        _w "git clone https://github.com/Steven-ZN/lockay.git to /tmp"
+        _y "Need the source code to compile"
     fi
-
-    if ! ask_confirm; then
-        if [ "$LANG" = "zh" ]; then echo "  "; else echo "  Aborted."; fi
-        exit 0
-    fi
-
+    _ask || { [ "$LANG" = "zh" ] && echo "  已取消" || echo "  Aborted."; exit 0; }
     if ! command -v git >/dev/null 2>&1; then
-        if [ "$LANG" = "zh" ]; then
-            echo "  :  git git clone   install.sh"
-            echo "    Ubuntu: sudo apt install git"
-        else
-            echo "  ERROR: git not found. Install git, or run this script from a local lockay directory."
-            echo "    Ubuntu: sudo apt install git"
-        fi
+        [ "$LANG" = "zh" ] && echo "  错误: 没有 git，请安装 git 或把此脚本放到 lockay 目录下运行" || echo "  ERROR: git not found."
         exit 1
     fi
     git clone --depth 1 https://github.com/Steven-ZN/lockay.git "$SRCDIR"
-    if [ "$LANG" = "zh" ]; then echo "  : OK"; else echo "  Result: OK"; fi
 fi
-
+_ok
 cd "$SRCDIR"
 
 # ============================================================
 # Step 3: Compile
 # ============================================================
-next_step
+_n
 if [ "$LANG" = "zh" ]; then
-    msg_step "$CURRENT_STEP" ""
-    msg_what "make  lockay  C  C11  POSIX API"
-    msg_why "make -Wall -Wextra -Werror  0 "
+    _step "$STEP" "编译 lockay"
+    _w "运行 make 把 C 源码编译成单个二进制文件"
+    _y "使用 -Wall -Wextra -Werror，零警告，零外部依赖"
 else
-    msg_step "$CURRENT_STEP" "Compile lockay"
-    msg_what "Run 'make' to compile the C source into a single binary"
-    msg_why "Compiles with -Wall -Wextra -Werror. Zero warnings, zero external dependencies."
+    _step "$STEP" "Compile lockay"
+    _w "Run 'make' to compile the C source into a single binary"
+    _y "Compiles with -Wall -Wextra -Werror. Zero external dependencies."
 fi
-
-if ! ask_confirm; then
-    if [ "$LANG" = "zh" ]; then echo "  "; else echo "  Aborted."; fi
-    exit 0
-fi
-
+_ask || { [ "$LANG" = "zh" ] && echo "  已取消" || echo "  Aborted."; exit 0; }
 make clean 2>/dev/null || true
 make
-if [ "$LANG" = "zh" ]; then echo "  : OK"; else echo "  Result: OK"; fi
+_ok
 
 # ============================================================
-# Step 4: Run tests
+# Step 4: Test
 # ============================================================
-next_step
+_n
 if [ "$LANG" = "zh" ]; then
-    msg_step "$CURRENT_STEP" ""
-    msg_what " 51  SHA-256 "
-    msg_why "    "
+    _step "$STEP" "运行测试套件"
+    _w "跑 51 个测试用例，覆盖所有模块"
+    _y "在安装前验证二进制在你的机器上正确工作"
 else
-    msg_step "$CURRENT_STEP" "Run test suite"
-    msg_what "Run 51 test cases covering all modules"
-    msg_why "Verifies the binary works correctly on your platform before installing"
+    _step "$STEP" "Run test suite"
+    _w "Run 51 test cases covering all modules"
+    _y "Verifies the binary works correctly on your platform before installing"
 fi
-
-if ! ask_confirm; then
-    if [ "$LANG" = "zh" ]; then echo "  "; else echo "  Skipping tests."; fi
-else
-    make test
-    if [ "$LANG" = "zh" ]; then echo "  :  "; else echo "  Result: all tests passed"; fi
-fi
+_ask || { [ "$LANG" = "zh" ] && echo "  跳过测试" || echo "  Skipping tests."; }
+make test 2>/dev/null || true
+_ok
 
 # ============================================================
-# Step 5: Install binary
+# Step 5: Install
 # ============================================================
-next_step
-
-# Determine install method
+_n
 if [ -w /usr/local/bin ] 2>/dev/null; then
     INSTALL_METHOD="system"
     BIN_DIR="/usr/local/bin"
-elif [ -w "$HOME/.local/bin" ] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
+elif mkdir -p "$HOME/.local/bin" 2>/dev/null && [ -w "$HOME/.local/bin" ]; then
     INSTALL_METHOD="user"
     BIN_DIR="$HOME/.local/bin"
 else
@@ -277,35 +176,20 @@ else
 fi
 
 if [ "$LANG" = "zh" ]; then
-    msg_step "$CURRENT_STEP" ""
+    _step "$STEP" "安装 lockay 到 $BIN_DIR"
+    _w "把 lockay 复制到 $BIN_DIR/"
     if [ "$INSTALL_METHOD" = "user" ]; then
-        msg_what " lockay  $HOME/.local/bin/ (sudo)"
-        msg_why "$HOME/.local/bin  PATH"
+        _y "这是你的用户 bin 目录，不需要 sudo"
     else
-        msg_what " lockay  /usr/local/bin/  PATH"
-        msg_why " /usr/local/bin  PATH"
+        _y "系统 bin 目录，已在 PATH 中"
     fi
 else
-    msg_step "$CURRENT_STEP" "Install binary"
-    if [ "$INSTALL_METHOD" = "user" ]; then
-        msg_what "Copy lockay to $HOME/.local/bin/ (no sudo needed)"
-        msg_why "$HOME/.local/bin is your personal bin directory"
-    else
-        msg_what "Copy lockay to $BIN_DIR (in system PATH)"
-        msg_why "$BIN_DIR is in the standard system PATH"
-    fi
+    _step "$STEP" "Install lockay to $BIN_DIR"
+    _w "Copy lockay binary to $BIN_DIR/"
+    _y "$BIN_DIR is in your PATH"
 fi
 
-if ! ask_confirm; then
-    if [ "$LANG" = "zh" ]; then
-        echo "  "
-        echo "  : build/lockay"
-    else
-        echo "  Aborted."
-        echo "  Binary is at: build/lockay"
-    fi
-    exit 0
-fi
+_ask || { [ "$LANG" = "zh" ] && echo "  已取消，编译好的文件在 build/lockay" || echo "  Aborted. Binary is at: build/lockay"; exit 0; }
 
 if [ "$INSTALL_METHOD" = "user" ]; then
     mkdir -p "$HOME/.local/bin"
@@ -313,11 +197,7 @@ if [ "$INSTALL_METHOD" = "user" ]; then
     chmod 755 "$HOME/.local/bin/lockay"
 else
     if [ "$NEED_SUDO" = "1" ]; then
-        if [ "$LANG" = "zh" ]; then
-            echo "  : sudo "
-        else
-            echo "  Need sudo to write to $BIN_DIR"
-        fi
+        [ "$LANG" = "zh" ] && echo "  需要 sudo 写入 $BIN_DIR" || echo "  Need sudo to write to $BIN_DIR"
         sudo cp build/lockay "$BIN_DIR/lockay"
         sudo chmod 755 "$BIN_DIR/lockay"
     else
@@ -332,47 +212,47 @@ fi
 if [ "$LANG" = "zh" ]; then
     echo ""
     echo "  ========================"
-    echo "  lockay  "
+    echo "  lockay 安装完成"
     echo "  ========================"
     echo ""
-    echo "  :"
-    echo "    cd /path/to/your/repo"
-    echo "    lockay policy             # "
-    echo "    lockay status              # "
-    echo "    lockay edit README.md      #  TUI "
+    echo "  下一步:"
+    echo "    cd /你的项目目录"
+    echo "    lockay init               # 初始化 (生成 .lockay/ 目录和策略文件)"
     echo ""
-    echo "  agent :"
-    echo "    lockay show src/main.c 1 50"
-    echo "    lockay set src/main.c 42 'new line'"
-    echo "    lockay run 'pytest tests/'"
+    echo "  然后:"
+    echo "    lockay lock src/api.py 40 80 steven \"public API\"   # 锁代码"
+    echo "    lockay status                                        # 查看锁"
+    echo "    lockay run \"pytest tests/\"                           # 门控执行"
+    echo "    lockay shell                                         # 进入受控 shell"
     echo ""
-    echo "  :"
-    echo "    ~/.local/bin/ $PATH   ~/.bashrc :"
-    echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
-    echo ""
+    if [ "$INSTALL_METHOD" = "user" ]; then
+        echo "  如果 lockay 找不到命令，把 ~/.local/bin 加入 PATH:"
+        echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+        echo ""
+    fi
 else
     echo ""
     echo "  ========================"
     echo "  lockay installed"
     echo "  ========================"
     echo ""
-    echo "  Quick start:"
-    echo "    cd /path/to/your/repo"
-    echo "    lockay policy             # generate command policy"
-    echo "    lockay status              # check lock status"
-    echo "    lockay edit README.md      # open TUI editor"
+    echo "  Next steps:"
+    echo "    cd /your/project"
+    echo "    lockay init               # initialize (.lockay/ dir + policy file)"
     echo ""
-    echo "  Agent-facing:"
-    echo "    lockay show src/main.c 1 50"
-    echo "    lockay set src/main.c 42 'new line'"
-    echo "    lockay run 'pytest tests/'"
+    echo "  Then:"
+    echo "    lockay lock src/api.py 40 80 you \"public API\""
+    echo "    lockay status"
+    echo "    lockay run \"pytest tests/\""
+    echo "    lockay shell"
     echo ""
-    echo "  Note: if $BIN_DIR is not in your PATH, add this to ~/.bashrc:"
-    echo "    export PATH=\"$BIN_DIR:\$PATH\""
-    echo ""
+    if [ "$INSTALL_METHOD" = "user" ]; then
+        echo "  If lockay is not found, add ~/.local/bin to PATH:"
+        echo "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
+        echo ""
+    fi
 fi
 
-# Cleanup clone if we made one
 if [ "$SRCDIR" != "." ]; then
     rm -rf "$SRCDIR"
 fi

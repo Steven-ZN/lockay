@@ -24,6 +24,7 @@ static void usage(const char *prog) {
     printf("  insert <file> <line> <text>    Insert before line (agent CLI)\n");
     printf("  delete <file> <start> <end>    Delete lines (agent CLI)\n");
     printf("\nCommand lock commands:\n");
+    printf("  init                            Initialize lockay in current directory\n");
     printf("  run    <command>               Run a command through policy gate\n");
     printf("  shell                          Enter interactive guarded shell\n");
     printf("  policy [file]                  Show or generate default policy\n");
@@ -176,6 +177,77 @@ static int cmd_shell(const char *repo) {
     return 0;
 }
 
+static int cmd_init(const char *repo) {
+    /* Create .lockay/ and .linelock/ directories */
+    char path[512];
+    snprintf(path, sizeof(path), "%s/.lockay", repo);
+    mkdir(path, 0755);
+
+    snprintf(path, sizeof(path), "%s/.linelock", repo);
+    mkdir(path, 0755);
+
+    /* Generate default policy */
+    snprintf(path, sizeof(path), "%s/.lockay/policy", repo);
+    FILE *f = fopen(path, "w");
+    if (!f) { fprintf(stderr, "ERROR: cannot create %s\n", path); return 1; }
+
+    fprintf(f, "# lockay command policy v1\n");
+    fprintf(f, "# Format: <command_pattern>    <allow|ask|deny>\n");
+    fprintf(f, "# Patterns use glob matching (* matches anything).\n");
+    fprintf(f, "# First matching rule wins.\n\n");
+    fprintf(f, "# --- L0: safe read-only ---\n");
+    fprintf(f, "ls *              allow\n");
+    fprintf(f, "cat *             allow\n");
+    fprintf(f, "grep *            allow\n");
+    fprintf(f, "echo *            allow\n");
+    fprintf(f, "find *            allow\n");
+    fprintf(f, "pytest *          allow\n");
+    fprintf(f, "\n");
+    fprintf(f, "# --- L1: local execution ---\n");
+    fprintf(f, "python *          allow\n");
+    fprintf(f, "python3 *         allow\n");
+    fprintf(f, "make *            allow\n");
+    fprintf(f, "gcc *             allow\n");
+    fprintf(f, "\n");
+    fprintf(f, "# --- L2: local write ---\n");
+    fprintf(f, "mkdir *           allow\n");
+    fprintf(f, "touch *           allow\n");
+    fprintf(f, "cp *              ask\n");
+    fprintf(f, "mv *              ask\n");
+    fprintf(f, "git add *         ask\n");
+    fprintf(f, "git commit *      ask\n");
+    fprintf(f, "\n");
+    fprintf(f, "# --- L3: destructive / network / dependency ---\n");
+    fprintf(f, "rm *              ask\n");
+    fprintf(f, "pip install *     ask\n");
+    fprintf(f, "npm install *     ask\n");
+    fprintf(f, "curl *            ask\n");
+    fprintf(f, "wget *            ask\n");
+    fprintf(f, "docker *          ask\n");
+    fprintf(f, "\n");
+    fprintf(f, "# --- L4: publish / system mutation ---\n");
+    fprintf(f, "git push *        deny\n");
+    fprintf(f, "ssh *             deny\n");
+    fprintf(f, "sudo *            deny\n");
+    fprintf(f, "chmod *           deny\n");
+    fclose(f);
+
+    /* Create empty audit log */
+    snprintf(path, sizeof(path), "%s/.lockay/audit.log", repo);
+    f = fopen(path, "a");
+    if (f) fclose(f);
+
+    printf("lockay initialized.\n");
+    printf("  Created: .lockay/    (policy + audit log)\n");
+    printf("  Created: .linelock/  (lock database)\n");
+    printf("\n");
+    printf("Next:\n");
+    printf("  Edit .lockay/policy to customize command rules\n");
+    printf("  lockay lock <file> <start> <end> to protect code regions\n");
+    printf("  lockay status to see what is locked\n");
+    return 0;
+}
+
 static int cmd_policy(const char *repo) {
     /* Generate a default policy file */
     char path[512];
@@ -260,6 +332,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(cmd, "set")    == 0) return cmd_set(argc, argv, repo);
     if (strcmp(cmd, "insert") == 0) return cmd_insert(argc, argv, repo);
     if (strcmp(cmd, "delete") == 0) return cmd_delete(argc, argv, repo);
+    if (strcmp(cmd, "init")   == 0) return cmd_init(repo);
     if (strcmp(cmd, "run")    == 0) return cmd_run(argc, argv, repo);
     if (strcmp(cmd, "shell")  == 0) return cmd_shell(repo);
     if (strcmp(cmd, "policy") == 0) return cmd_policy(repo);
