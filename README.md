@@ -249,6 +249,46 @@ For local dev: lockay enforces policy at the application level. No privilege sep
 
 ---
 
+### TUI Editor
+
+```bash
+lockay edit <file>
+```
+
+Opens a nano-style terminal editor with lock enforcement. Locked lines show a visual marker and cannot be modified.
+
+```
+ GNU linelock 0.1                  demo.py
+──────────────────────────────────────────────────
+     1  class Model(nn.Module):
+█    2      def __init__(self, dim):     [lock-id]
+█    3          super().__init__()
+     4          self.encoder = nn.Linear(dim, 64)
+     5
+     6      def forward(self, x):
+     7          x = self.encoder(x)
+     8          return x
+──────────────────────────────────────────────────
+^G Help  ^O Write  ^X Exit  ^L Lock  ^U Unlock
+```
+
+| Key | Action |
+|-----|--------|
+| `^O` | Save (validates all locks before writing) |
+| `^X` | Exit |
+| `^L` | Lock the current line |
+| `^U` | Unlock the current line |
+| `^K` | Cut current line (clears content) |
+| `^A` / `^E` | Jump to start / end of line |
+| Arrows | Move cursor |
+| Type | Insert characters (rejected on locked lines) |
+| Backspace / Delete | Delete characters (rejected on locked lines) |
+| Enter | Line break (rejected on locked lines) |
+
+If you try to edit a locked line, it prints: `Line N is locked (lock-id)` and rejects the change. Save validates all lock content hashes before writing to disk.
+
+---
+
 ### Project layout
 
 ```
