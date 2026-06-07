@@ -80,22 +80,38 @@ cd /your/project
 # Generate command policy
 lockay policy
 
-# Lock your public API
+# Lock a range of lines by line number
 lockay lock src/api.py 40 80 you "public contract"
+# Format: lockay lock <file> <start_line> <end_line> [owner] [reason]
 
-# Lock your database schema
-lockay lock src/schema.sql 1 50 you "schema v2"
+# View what is locked
+lockay status                  # all files
+lockay status src/api.py       # one file
 
-# Show locks
-lockay status
+# Show file with lock marks (locked lines are marked)
+lockay show src/api.py
 
-# Edit with lock enforcement (locked lines show a visual marker)
+# Unlock by lock ID (the 6-char ID shown in status)
+lockay unlock a1b2c3
+
+# Edit with lock enforcement
 lockay edit src/model.py
 
 # Run commands through the gate
 lockay run "pytest tests/"
 lockay run "rm -rf build/"          # prompts for approval
 lockay run "git push origin main"   # denied by default
+```
+
+Lock vs unlock at a glance:
+
+| Action | Command | Notes |
+|--------|---------|-------|
+| Lock lines | `lockay lock <file> <start> <end> [owner] [reason]` | Returns a 6-char lock ID |
+| See locks | `lockay status [file]` | Lists all locks with their IDs |
+| See content | `lockay show <file>` | Locked lines show visual markers |
+| Unlock | `lockay unlock <lock_id>` | Use the ID from `status` |
+| Verify | `lockay check <file>` | Checks no lock content has been modified |
 ```
 
 ---

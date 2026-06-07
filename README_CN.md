@@ -76,22 +76,38 @@ cd /your/project
 # 生成命令策略
 lockay policy
 
-# 锁定公开 API
+# 按行号锁定一段代码
 lockay lock src/api.py 40 80 steven "public contract"
-
-# 锁定数据库 schema
-lockay lock src/schema.sql 1 50 steven "schema v2"
+# 格式: lockay lock <文件> <起始行> <结束行> [owner] [reason]
 
 # 查看锁定状态
-lockay status
+lockay status                  # 全部文件
+lockay status src/api.py       # 单个文件
 
-# 用 TUI 编辑器编辑 (锁住的行有视觉标记)
+# 带锁标记查看文件 (被锁行有视觉标记)
+lockay show src/api.py
+
+# 用锁 ID 解锁 (ID 在 status 输出中显示)
+lockay unlock a1b2c3
+
+# 用 TUI 编辑器编辑
 lockay edit src/model.py
 
 # 通过策略门控执行命令
 lockay run "pytest tests/"
 lockay run "rm -rf build/"          # 弹出审批
 lockay run "git push origin main"   # 默认拒绝
+```
+
+上锁/解锁速览:
+
+| 操作 | 命令 | 说明 |
+|------|------|------|
+| 上锁 | `lockay lock <文件> <起始行> <结束行> [owner] [reason]` | 返回 6 位锁 ID |
+| 查看 | `lockay status [文件]` | 列出所有锁及其 ID |
+| 看内容 | `lockay show <文件>` | 被锁行有视觉标记 |
+| 解锁 | `lockay unlock <锁ID>` | 用 `status` 输出的 ID 解锁 |
+| 校验 | `lockay check <文件>` | 检查锁区内容是否被篡改 |
 ```
 
 ---
