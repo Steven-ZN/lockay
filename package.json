@@ -5,19 +5,19 @@
   "homepage": "https://github.com/Steven-ZN/lockay",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Steven-ZN/lockay.git"
+    "url": "git+https://github.com/Steven-ZN/lockay.git"
   },
   "license": "MIT",
   "author": "Steven-ZN",
   "bin": {
-    "lockay": "./build/lockay"
+    "lockay": "bin/lockay"
   },
   "scripts": {
-    "install": "make clean && make && make install-local",
-    "test": "make test",
-    "postinstall": "echo 'lockay installed. Run: npx lockay init'"
+    "install": "make clean && make",
+    "test": "make test"
   },
   "files": [
+    "bin/",
     "src/",
     "tests/",
     "Makefile",
@@ -27,15 +27,8 @@
     "info.png"
   ],
   "keywords": [
-    "agent",
-    "capability",
-    "security",
-    "sandbox",
-    "lock",
-    "code-lock",
-    "command-gate",
-    "llm",
-    "coding-agent"
+    "agent", "capability", "security", "lock",
+    "code-lock", "command-gate", "llm", "coding-agent"
   ],
   "os": ["darwin", "linux"],
   "engines": {
