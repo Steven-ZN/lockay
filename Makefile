@@ -1,4 +1,4 @@
-.PHONY: all clean test install
+.PHONY: all clean test install install-local
 
 CC       := gcc
 CFLAGS   := -Wall -Wextra -Werror -std=c11 -O2 -g -D_GNU_SOURCE
@@ -7,6 +7,8 @@ LDFLAGS  :=
 SRCDIR   := src
 BUILDDIR := build
 TESTDIR  := tests
+PREFIX   ?= /usr/local
+BINDIR   ?= $(PREFIX)/bin
 
 # Common objects
 COMMON   := filebuf sha256 lockdb validate apply cmdlock
@@ -46,4 +48,12 @@ clean:
 	rm -rf $(BUILDDIR)
 
 install: $(BUILDDIR)/lockay
-	install -m 755 $(BUILDDIR)/lockay /usr/local/bin/lockay
+	install -d $(DESTDIR)$(BINDIR)
+	install -m 755 $(BUILDDIR)/lockay $(DESTDIR)$(BINDIR)/lockay
+	@echo "lockay installed to $(DESTDIR)$(BINDIR)/lockay"
+
+install-local: $(BUILDDIR)/lockay
+	install -d $$HOME/.local/bin
+	install -m 755 $(BUILDDIR)/lockay $$HOME/.local/bin/lockay
+	@echo "lockay installed to $$HOME/.local/bin/lockay"
+	@echo "Make sure $$HOME/.local/bin is in your PATH."

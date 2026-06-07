@@ -56,23 +56,22 @@ The agent has no direct write access to repository files and no unrestricted she
 
 ## Quick Start
 
-### Build from source
+### Install (one command)
 
 ```bash
-git clone https://github.com/user/lockay.git
+curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
+```
+
+Or build manually (zero dependencies beyond gcc + make):
+
+```bash
+git clone https://github.com/Steven-ZN/lockay.git
 cd lockay
 make
+sudo make install          # system-wide (needs sudo)
+# or:
+make install-local          # user-local (~/.local/bin)
 ```
-
-Requirements: gcc, make, Linux. No external dependencies.
-
-### Install
-
-```bash
-sudo make install
-```
-
-This installs `lockay` to `/usr/local/bin`.
 
 ### Basic Usage
 
