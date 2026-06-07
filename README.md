@@ -53,6 +53,8 @@ Two enforcement layers, one binary:
 
 ### Install
 
+> **Note: Windows is not supported natively.** lockay relies on POSIX APIs (termios, mkstemp, etc.). Windows users should use WSL.
+
 **Linux / macOS / BSD:**
 
 ```bash
@@ -66,22 +68,6 @@ git clone https://github.com/Steven-ZN/lockay.git
 cd lockay && make
 sudo make install          # system-wide
 make install-local          # user-local (~/.local/bin)
-```
-
-**Windows (WSL):**
-
-```powershell
-# In WSL terminal:
-curl -fsSL https://raw.githubusercontent.com/Steven-ZN/lockay/main/install.sh | sh
-```
-
-**Windows (native, via MSYS2):**
-
-```bash
-# In MSYS2 UCRT64 terminal:
-pacman -S git gcc make
-git clone https://github.com/Steven-ZN/lockay.git
-cd lockay && make && make install-local
 ```
 
 Zero library dependencies beyond a C11 compiler.
